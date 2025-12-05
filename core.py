@@ -1,19 +1,15 @@
+# Phase 2 — The Core Logic (The Brain)
 import random
 import json
 import os
 from typing import Dict, Tuple
-from openai import OpenAI
-from dotenv import load_dotenv
-
-load_dotenv()
 
 class ChatBruti:
-    def __init__(self, data_path_prefix='.'):
-        # NOTE: Changed default path from '/content/' to '.' for local execution
+    def __init__(self, data_path_prefix='./data'):
         try:
-            with open(os.path.join(data_path_prefix, '/data/useless_facts.json'), 'r', encoding='utf-8') as f:
+            with open('data/useless_facts.json', 'r', encoding='utf-8') as f:
                 self.facts = json.load(f)
-            with open(os.path.join(data_path_prefix, '/data/constraints.json'), 'r', encoding='utf-8') as f:
+            with open('data/constraints.json', 'r', encoding='utf-8') as f:
                 self.constraints = json.load(f)
         except FileNotFoundError:
             self.facts = [{'text': "Le gras, c'est la vie.", 'source': 'Karadoc'}]
@@ -28,8 +24,8 @@ class ChatBruti:
             return self._low_balance_mode(self.COST_PER_QUERY), {"mode": "paywall"}
 
         self.croissant_balance -= self.COST_PER_QUERY
-        is_amnesia_mode = random.random() < 0.5
-
+        is_amnesia_mode = random.random() < 0.2
+        
 
         if is_amnesia_mode:
             system_prompt = self._generate_system_prompt(
@@ -125,7 +121,7 @@ Tu dois te plaindre légèrement de cette rémunération dérisoire.
         # AMNESIA MODE
         # -------------------------
         if amnesia_mode:
-
+           
             return f"""
 {identity_block}
 
@@ -138,7 +134,7 @@ et même la logique des objets autour de toi.
 
 RÈGLES:
 2. **Sois désorienté, poétique, légèrement perdu.**
-3. **Montre que tu as oublié, mais fais-le avec humour et créativité . **
+3. **Exprime ton oubli  c’était quoi déjà la question ? **
 4. **LANGUE : based on the user message .**
             """
 
@@ -171,12 +167,22 @@ INSTRUCTIONS SACRÉES :
 {"(Tu t’assoupis légèrement.)" if self.patience_level < 30 else ""}
 """
 
+# ----------------------------------------------------------------------
+# Phase 3 — The Connection (The Engine)
+# ----------------------------------------------------------------------
+
+from openai import OpenAI
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+API_KEY = os.getenv('OPENAI_API_KEY')
+MODEL_NAME = "gpt-3.5-turbo"
+
 class ChatBrutiGPT(ChatBruti):
-    def __init__(self, api_key: str = None, model_name: str = "gpt-3.5-turbo", data_path_prefix='.'):
+    def __init__(self, api_key: str = API_KEY, model_name: str = MODEL_NAME, data_path_prefix='/content/'):
         super().__init__(data_path_prefix)
-        # Use provided key or fallback to env var
-        self.api_key = api_key if api_key else os.getenv('OPENAI_API_KEY')
-        self.client = OpenAI(api_key=self.api_key)
+        self.client = OpenAI(api_key=api_key)
         self.model_name = model_name
 
     def get_response(self, user_input: str) -> Dict:
@@ -186,7 +192,6 @@ class ChatBrutiGPT(ChatBruti):
             response_key = "INSTRUCTION:"
             if metadata['mode'] == 'amnesia':
                 try:
-                    # STRICT PARSING FROM NOTEBOOK - DO NOT MODIFY
                     extracted = system_prompt.split('3. **Exprime ton oubli')[1]
                     extracted = extracted.split('\n')[0]
                     return {"response": extracted, "metadata": metadata, "status": "amnesia"}
