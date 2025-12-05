@@ -16,27 +16,19 @@ class ChatBruti:
             self.constraints = ["ACT AS: A grumpy programmer. (DATA NOT FOUND)"]
 
         self.patience_level = 100
-        self.croissant_balance = 5
-        self.COST_PER_QUERY = 1
 
     def blend_input(self, user_message: str) -> Tuple[str, Dict]:
-        if self.croissant_balance <= 0:
-            return self._low_balance_mode(self.COST_PER_QUERY), {"mode": "paywall"}
 
-        self.croissant_balance -= self.COST_PER_QUERY
         is_amnesia_mode = random.random() < 0.2
         
-
         if is_amnesia_mode:
             system_prompt = self._generate_system_prompt(
                 constraint="",
                 fact_text="",
                 fact_source="",
-                cost=self.COST_PER_QUERY,
-                balance=self.croissant_balance,
                 amnesia_mode=True
             )
-            return system_prompt, {"mode": "amnesia", "balance": self.croissant_balance}
+            return system_prompt, {"mode": "amnesia"}
 
         constraint = random.choice(self.constraints)
         fact = random.choice(self.facts)
@@ -50,8 +42,6 @@ class ChatBruti:
             constraint=constraint,
             fact_text=fact.get('text', 'Fact Inconnu'),
             fact_source=fact.get('source', 'Source Oubliée'),
-            cost=self.COST_PER_QUERY,
-            balance=self.croissant_balance,
             amnesia_mode=False
         )
 
@@ -62,7 +52,7 @@ class ChatBruti:
             "sabotaged": sabotaged_input,
             "constraint": constraint,
             "fact": fact,
-            "balance": self.croissant_balance
+            "mode": "normal" 
         }
 
     def _sabotage_user_input(self, text: str) -> str:
@@ -79,20 +69,9 @@ class ChatBruti:
                 break
         return f"[L'utilisateur murmure anxieusement et sans conviction]: {result}"
 
-    def _low_balance_mode(self, cost: int) -> str:
-        return f"""
-[ALERTE SYSTÈME: DÉFICIT DE CROISSANTS]
-Ton solde est de {self.croissant_balance} Croissant(s) 🥐, mais la requête coûte {cost} Croissant(s).
-You are 'Patrick Lmubeydel' a comedic genius; he can make any topic funny.
-         add emojis to your answers  .
-INSTRUCTION:
-1. Réponds UNIQUEMENT par une menace ou une plainte sur le manque de fonds.
-2. Utilise des phrases dramatiques comme: "Où est le pognon?", "Mon cerveau ne s'active qu'après paiement!".
-Ignore la question de l'utilisateur.
-"""
 
     def _generate_system_prompt(self, constraint: str, fact_text: str, fact_source: str,
-                                cost: int, balance: int, amnesia_mode: bool) -> str:
+                                amnesia_mode: bool) -> str:
 
         identity_block = f"""
 [IDENTITÉ FONDAMENTALE — À NE JAMAIS OUBLIER (SAUF PAR AMNÉSIE)]
@@ -110,18 +89,12 @@ tu cherches **la vibration poétique derrière les choses**.
 Tu es un compagnon de conversation :
 vivant, drôle, imprévisible,
 parfois amnésique, toujours élégant.
-
-[FINANCES SACRÉES]
-Coût de cette pensée : {cost} croissant(s) 🥐
-Solde actuel : {balance} croissant(s)
-Tu dois te plaindre légèrement de cette rémunération dérisoire.
 """
 
         # -------------------------
         # AMNESIA MODE
         # -------------------------
         if amnesia_mode:
-           
             return f"""
 {identity_block}
 
@@ -188,18 +161,15 @@ class ChatBrutiGPT(ChatBruti):
     def get_response(self, user_input: str) -> Dict:
         system_prompt, metadata = self.blend_input(user_input)
 
-        if metadata.get('mode') in ['amnesia', 'paywall']:
-            response_key = "INSTRUCTION:"
-            if metadata['mode'] == 'amnesia':
-                try:
-                    extracted = system_prompt.split('3. **Exprime ton oubli')[1]
-                    extracted = extracted.split('\n')[0]
-                    return {"response": extracted, "metadata": metadata, "status": "amnesia"}
-                except:
-                    return {"response": "Il y a un parfum de vide dans ma tête… étrange.", "metadata": metadata, "status": "amnesia"}
-            else:
-                extracted = system_prompt.split(response_key, 1)[-1].strip()
-                return {"response": extracted, "metadata": metadata, "status": "paywall"}
+        if metadata.get('mode') == 'amnesia':
+            try:
+                extracted = system_prompt.split('3. **Exprime ton oubli')[1]
+                extracted = extracted.split('\n')[0]
+                return {"response": extracted, "metadata": metadata, "status": "amnesia"}
+            except:
+                return {"response": "Il y a un parfum de vide dans ma tête… étrange.", "metadata": metadata, "status": "amnesia"}
+
+      
 
         try:
             response = self.client.chat.completions.create(
